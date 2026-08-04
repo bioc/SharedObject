@@ -12,7 +12,7 @@ Authors@R: c(
     person("Martin", "Morgan", role = "aut"))
 Description: This package is developed for facilitating parallel computing in R. 
   It is capable to create an R object in the shared memory space and share the data across multiple R processes. 
-  It avoids the overhead of memory dulplication and data transfer, which make sharing big data object across many clusters possible.
+  It avoids the overhead of memory duplication and data transfer, which make sharing big data objects across many clusters possible.
 License: GPL-3
 LinkingTo: 
     BH,

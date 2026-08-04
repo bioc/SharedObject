@@ -37,7 +37,7 @@ shareANY <- function(x, ..., copyOnWrite, sharedSubset, sharedCopy,
 
 
 ## x must be an atomic object
-shareAtomic <- function(x,...) {
+shareAtomic <- function(x,...,.setS4 = FALSE) {
     options <- completeOptions(...)
     oldAttrs <- attributes(x)
     if(options$sharedAttributes){
@@ -52,17 +52,17 @@ shareAtomic <- function(x,...) {
                 copyOnWrite=options$copyOnWrite,
                 sharedSubset=options$sharedSubset,
                 sharedCopy=options$sharedCopy,
-                attributes=as.pairlist(newAttrs)
+                attributes=as.pairlist(newAttrs),
+                setS4=.setS4
             )
         }else{
             result <- C_createSharedStringFromSource(
                 x=x,
                 copyOnWrite=options$copyOnWrite,
-                attributes=as.pairlist(newAttrs)
+                attributes=as.pairlist(newAttrs),
+                setS4=.setS4
             )
         }
-        # Set the object property for the shared object
-        C_setObject(result, C_getObject(x))
     }else{
         result <- x
         if(!C_isSameObject(newAttrs,oldAttrs)){
@@ -78,7 +78,7 @@ shareList <- function(x,...) {
 
 
 shareS4 <- function(x,...){
-    doS4(tryShare,x,...)
+    doS4(tryShare,x,...,setS4InFunc = TRUE)
 }
 shareEnvironment <- function(x,...){
     doEnvironment(share,tryShare,x,...)

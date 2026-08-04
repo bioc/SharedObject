@@ -56,9 +56,9 @@ SEXP sharedVector_duplicate(SEXP x, Rboolean deep)
 		}
 		else
 		{
-			SEXP result = PROTECT(Rf_allocVector(TYPEOF(x), XLENGTH(x)));
-			memcpy(DATAPTR(result), DATAPTR(x), as<R_xlen_t>(GET_ALT_SLOT(x, INFO_TOTALSIZE)));
-			UNPROTECT(1);
+			PROTECT_GUARD guard;
+			SEXP result = guard.protect(Rf_allocVector(TYPEOF(x), XLENGTH(x)));
+			memcpy(getWritableDataPtr(result), DATAPTR_RO(x), as<R_xlen_t>(GET_ALT_SLOT(x, INFO_TOTALSIZE)));
 			return result;
 		}
 	}
@@ -78,9 +78,9 @@ SEXP sharedVector_serialized_state(SEXP x)
 	if (!hasSharedMemory(id))
 	{
 		Rf_warning("The shared memory does not exist(id: %s), the unshared data will be exported instead\n", id.c_str());
-		SEXP unsharedData = PROTECT(Rf_allocVector(TYPEOF(x), XLENGTH(x)));
-		memcpy(DATAPTR(unsharedData), DATAPTR(x), getObjectSize(x));
-		UNPROTECT(1);
+		PROTECT_GUARD guard;
+		SEXP unsharedData = guard.protect(Rf_allocVector(TYPEOF(x), XLENGTH(x)));
+		memcpy(getWritableDataPtr(unsharedData), DATAPTR_RO(x), getObjectSize(x));
 		return unsharedData;
 	}else{
 		return (ALT_DATAINFO(x));
@@ -111,6 +111,23 @@ SEXP sharedVector_unserialize(SEXP R_class, SEXP dataInfo)
 
 SEXP sharedVector_subset(SEXP x, SEXP indx, SEXP call)
 {
+	if (TYPEOF(indx) != INTSXP && TYPEOF(indx) != REALSXP)
+		return NULL;
+
+	// C NULL tells R to run its regular subset implementation. This is not
+	// R_NilValue, which would be an actual R NULL result.
+	switch (TYPEOF(x))
+	{
+	case LGLSXP:
+	case INTSXP:
+	case REALSXP:
+	case CPLXSXP:
+	case RAWSXP:
+		break;
+	default:
+		return NULL;
+	}
+
 	bool copyOnWrite = as<bool>(GET_ALT_SLOT(x, INFO_COPYONWRITE));
 	bool sharedSubset = as<bool>(GET_ALT_SLOT(x, INFO_SHAREDSUBSET));
 	bool sharedCopy = as<bool>(GET_ALT_SLOT(x, INFO_SHAREDCOPY));
@@ -118,34 +135,72 @@ SEXP sharedVector_subset(SEXP x, SEXP indx, SEXP call)
 
 	//Allocate the subset vector and assign values
 	uint64_t length = Rf_xlength(indx);
+	PROTECT_GUARD guard;
 	SEXP subVector;
 	if (sharedSubset)
 	{
-		subVector = createEmptySharedObject(TYPEOF(x), length,
-											  copyOnWrite, sharedSubset, sharedCopy);
-		PROTECT(subVector);
+		subVector = guard.protect(
+			createEmptySharedObject(TYPEOF(x), length,
+								copyOnWrite, sharedSubset, sharedCopy));
 	}
 	else
 	{
-		subVector = PROTECT(Rf_allocVector(TYPEOF(x), length));
+		subVector = guard.protect(Rf_allocVector(TYPEOF(x), length));
 	}
-	// 1-based index
-	uint8_t typeSize = getTypeSize(TYPEOF(x));
-	void *indx_ptr = DATAPTR(indx);
-	char *src_ptr = (char *)DATAPTR(x) - typeSize;
-	char *dest_ptr = (char *)DATAPTR(subVector);
+	const size_t typeSize = getTypeSize(TYPEOF(x));
+	const char *src_ptr = static_cast<const char *>(DATAPTR_RO(x));
+	char *dest_ptr = static_cast<char *>(getWritableDataPtr(subVector));
+	const R_xlen_t sourceLength = XLENGTH(x);
+	const int *integerIndex = TYPEOF(indx) == INTSXP ? INTEGER_RO(indx) : NULL;
+	const double *realIndex = TYPEOF(indx) == REALSXP ? REAL_RO(indx) : NULL;
 	for (uint64_t i = 0; i < length; i++)
 	{
-		switch (TYPEOF(indx))
+		R_xlen_t sourceIndex;
+		bool validIndex;
+		if (integerIndex != NULL)
 		{
-		case INTSXP:
-			memcpy(dest_ptr + i * typeSize, src_ptr + ((int *)indx_ptr)[i] * typeSize, typeSize);
-			break;
-		case REALSXP:
-			memcpy(dest_ptr + i * typeSize, src_ptr + ((size_t)((double *)indx_ptr)[i]) * typeSize, typeSize);
-			break;
+			int value = integerIndex[i];
+			validIndex = value > 0 && value <= sourceLength;
+			sourceIndex = validIndex ? static_cast<R_xlen_t>(value) - 1 : 0;
+		}
+		else
+		{
+			double value = realIndex[i];
+			validIndex = R_FINITE(value) && value >= 1 && value <= sourceLength;
+			if (validIndex)
+			{
+				sourceIndex = static_cast<R_xlen_t>(value - 1);
+			}
+			else
+			{
+				sourceIndex = 0;
+			}
+		}
+
+		if (validIndex)
+		{
+			memcpy(dest_ptr + i * typeSize, src_ptr + sourceIndex * typeSize, typeSize);
+		}
+		else
+		{
+			switch (TYPEOF(x))
+			{
+			case LGLSXP:
+			case INTSXP:
+				reinterpret_cast<int *>(dest_ptr)[i] = NA_INTEGER;
+				break;
+			case REALSXP:
+				reinterpret_cast<double *>(dest_ptr)[i] = NA_REAL;
+				break;
+			case CPLXSXP:
+				reinterpret_cast<Rcomplex *>(dest_ptr)[i].r = NA_REAL;
+				reinterpret_cast<Rcomplex *>(dest_ptr)[i].i = NA_REAL;
+				break;
+			case RAWSXP:
+				reinterpret_cast<Rbyte *>(dest_ptr)[i] = 0;
+				break;
+			}
 		}
 	}
-	UNPROTECT(1);
 	return subVector;
 }

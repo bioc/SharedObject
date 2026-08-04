@@ -1,11 +1,21 @@
 #include <string>
 #include "Rcpp.h"
+#include "Rversion.h"
 #include "R_ext/Altrep.h"
 #include "altrep.h"
 #include "altrepMacro.h"
 #include "utils.h"
 using std::string;
 using namespace Rcpp;
+
+static void *altrepDataptrRW(SEXP x)
+{
+#if R_VERSION >= R_Version(4, 6, 0)
+    return DATAPTR_RW(x);
+#else
+    return DATAPTR(x);
+#endif
+}
 
 Rboolean sharedString_Inspect(SEXP x, int pre, int deep, int pvec,
                               void (*inspect_subtree)(SEXP, int, int, int))
@@ -27,20 +37,20 @@ void *sharedString_dataptr(SEXP x, Rboolean writeable)
     altrepPrint("string: accessing data pointer for string\n");
     if (VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC) != R_NilValue)
     {
-        return DATAPTR(VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC));
+        return altrepDataptrRW(VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC));
     }
     //Allocate the entire string vector
     SEXP stringVec = PROTECT(unshareString(x));
     SET_VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC, stringVec);
     UNPROTECT(1);
-    return DATAPTR(stringVec);
+    return altrepDataptrRW(stringVec);
 }
 const void *sharedString_dataptr_or_null(SEXP x)
 {
     altrepPrint("string: accessing data pointer or null for string\n");
     if (VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC) != R_NilValue)
     {
-        return DATAPTR(VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC));
+        return DATAPTR_OR_NULL(VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_STRVEC));
     }
     else
     {
@@ -57,7 +67,7 @@ SEXP sharedString_elt(SEXP x, R_xlen_t i)
     }
     SEXP sharedIndex = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_INDEX);
     SEXP charSet = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_CHARSET);
-    void *indexPtr = DATAPTR(sharedIndex);
+    const Rbyte *indexPtr = RAW_RO(sharedIndex);
     size_t unitSize = Rcpp::as<size_t>(GET_ALT_SLOT(x, STR_INFO_UNITSIZE));
     switch (unitSize)
     {
@@ -75,30 +85,29 @@ SEXP sharedString_elt(SEXP x, R_xlen_t i)
 
 void sharedString_set_elt(SEXP x, R_xlen_t i, SEXP v)
 {
-    altrepPrint("string: Setting element %llu to <%s>\n", (uint64_t)i, DATAPTR(v));
+    altrepPrint("string: Setting element %llu to <%s>\n", (uint64_t)i, R_CHAR(v));
     SEXP sharedIndex = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_INDEX);
     SEXP charSet = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_CHARSET);
-    void *indexPtr = DATAPTR(sharedIndex);
+    Rbyte *indexPtr = RAW(sharedIndex);
     size_t unitSize = Rcpp::as<size_t>(GET_ALT_SLOT(x, STR_INFO_UNITSIZE));
-    SEXP *iter_begin = (SEXP *)DATAPTR(charSet);
-    SEXP *iter_end = (SEXP *)DATAPTR(charSet) + XLENGTH(charSet);
-    SEXP *find_result = std::find(iter_begin, iter_end, v);
-    if (find_result != iter_end)
+    R_xlen_t offset = 0;
+    while (offset < XLENGTH(charSet) && STRING_ELT(charSet, offset) != v)
+        offset++;
+    if (offset < XLENGTH(charSet))
     {
-        size_t offset = find_result - iter_begin;
         switch (unitSize)
         {
         case 1:
             ((uint8_t *)indexPtr)[i] = offset;
             break;
         case 2:
-            ((uint8_t *)indexPtr)[i] = offset;
+            ((uint16_t *)indexPtr)[i] = offset;
             break;
         case 4:
-            ((uint8_t *)indexPtr)[i] = offset;
+            ((uint32_t *)indexPtr)[i] = offset;
             break;
         case 8:
-            ((uint8_t *)indexPtr)[i] = offset;
+            ((uint64_t *)indexPtr)[i] = offset;
             break;
         }
     }

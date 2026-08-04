@@ -13,12 +13,12 @@ C_createEmptySharedObject <- function(type, length, copyOnWrite, sharedSubset, s
     .Call(`_SharedObject_C_createEmptySharedObject`, type, length, copyOnWrite, sharedSubset, sharedCopy, attributes)
 }
 
-C_createSharedObjectFromSource <- function(x, copyOnWrite, sharedSubset, sharedCopy, attributes) {
-    .Call(`_SharedObject_C_createSharedObjectFromSource`, x, copyOnWrite, sharedSubset, sharedCopy, attributes)
+C_createSharedObjectFromSource <- function(x, copyOnWrite, sharedSubset, sharedCopy, attributes, setS4) {
+    .Call(`_SharedObject_C_createSharedObjectFromSource`, x, copyOnWrite, sharedSubset, sharedCopy, attributes, setS4)
 }
 
-C_createSharedStringFromSource <- function(x, copyOnWrite, attributes) {
-    .Call(`_SharedObject_C_createSharedStringFromSource`, x, copyOnWrite, attributes)
+C_createSharedStringFromSource <- function(x, copyOnWrite, attributes, setS4) {
+    .Call(`_SharedObject_C_createSharedStringFromSource`, x, copyOnWrite, attributes, setS4)
 }
 
 C_readSharedObject <- function(dataInfo) {
@@ -69,24 +69,12 @@ C_setAltData2 <- function(x, data) {
     invisible(.Call(`_SharedObject_C_setAltData2`, x, data))
 }
 
-C_getObject <- function(x) {
-    .Call(`_SharedObject_C_getObject`, x)
-}
-
-C_setObject <- function(x, i) {
-    invisible(.Call(`_SharedObject_C_setObject`, x, i))
-}
-
 C_ISS4 <- function(x) {
     .Call(`_SharedObject_C_ISS4`, x)
 }
 
-C_SETS4 <- function(x) {
-    invisible(.Call(`_SharedObject_C_SETS4`, x))
-}
-
-C_UNSETS4 <- function(x) {
-    invisible(.Call(`_SharedObject_C_UNSETS4`, x))
+C_setS4 <- function(x, flag) {
+    .Call(`_SharedObject_C_setS4`, x, flag)
 }
 
 C_isSameObject <- function(x, y) {
