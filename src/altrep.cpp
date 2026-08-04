@@ -97,7 +97,7 @@ SEXP createEmptySharedObject(int type, uint64_t length,
 	//Create altrep
 	R_altrep_class_t alt_class = getAltClass(as<int>(dataInfo[INFO_DATATYPE]));
 	SEXP res = guard.protect(R_new_altrep(alt_class, sharedExtPtr, dataInfo));
-	SET_ATTRIB(res, attributes);
+	setAttributes(res, attributes);
 	return res;
 }
 
@@ -117,9 +117,9 @@ SEXP createSharedObjectFromSource(
 	// If x has data pointer, we just use memcpy function
 	// Otherwise, we use get_region function to get the data from x
 	if (DATAPTR_OR_NULL(x) != NULL)
-		memcpy(DATAPTR(result), DATAPTR(x), dataSize);
+		memcpy(getWritableDataPtr(result), DATAPTR_RO(x), dataSize);
 	else
-		copyData(DATAPTR(result), x);
+		copyData(getWritableDataPtr(result), x);
 	UNPROTECT(1);
 	return result;
 }
@@ -149,7 +149,7 @@ SEXP createSharedStringFromSource(SEXP x, bool copyOnWrite,	SEXP attributes)
 	PROTECT_GUARD guard;
 	SEXP sharedIndex = guard.protect(createEmptySharedObject(RAWSXP, totalSize));
 	SEXP charSet = guard.protect(Rf_allocVector(STRSXP, uniqueCharSet.size()));
-	void *indexPtr = DATAPTR(sharedIndex);
+	Rbyte *indexPtr = RAW(sharedIndex);
 	for (size_t i = 0; i < length; i++)
 	{
 		SEXP curChar = STRING_ELT(x, i);
@@ -185,7 +185,7 @@ SEXP createSharedStringFromSource(SEXP x, bool copyOnWrite,	SEXP attributes)
 	dataInfo[STR_INFO_COPYONWRITE] = copyOnWrite;
 	R_altrep_class_t alt_class = getAltClass(TYPEOF(x));
 	SEXP res = guard.protect(R_new_altrep(alt_class, data, dataInfo));
-	SET_ATTRIB(res, attributes);
+	setAttributes(res, attributes);
 	return res;
 }
 SEXP readSharedObject(SEXP dataInfo)
@@ -207,8 +207,8 @@ SEXP unshare(SEXP x, SEXP attributes)
 {
 	PROTECT_GUARD guard;
 	SEXP res = guard.protect(Rf_allocVector(TYPEOF(x), XLENGTH(x)));
-	memcpy(DATAPTR(res), DATAPTR(x), getObjectSize(x));
-	SET_ATTRIB(res, attributes);
+	memcpy(getWritableDataPtr(res), DATAPTR_RO(x), getObjectSize(x));
+	setAttributes(res, attributes);
 	return res;
 }
 //Create a regular string vector based on x
@@ -216,7 +216,7 @@ SEXP unshareString(SEXP x, SEXP attributes)
 {
     SEXP sharedIndex = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_INDEX);
     SEXP charSet = VECTOR_ELT(STR_ALT_DATA(x), STR_DATA_CHARSET);
-    void *indexPtr = DATAPTR(sharedIndex);
+    const Rbyte *indexPtr = RAW_RO(sharedIndex);
     const size_t unitSize = Rcpp::as<size_t>(GET_ALT_SLOT(x, STR_INFO_UNITSIZE));
     R_xlen_t length = XLENGTH(x);
     SEXP stringVec = PROTECT(Rf_allocVector(STRSXP, length));
@@ -243,7 +243,7 @@ SEXP unshareString(SEXP x, SEXP attributes)
         }
         SET_STRING_ELT(stringVec, i, curChar);
     }
-	SET_ATTRIB(stringVec, attributes);
+	setAttributes(stringVec, attributes);
     UNPROTECT(1);
     return stringVec;
 }

@@ -31,6 +31,8 @@ void throwError(const char *format, ...);
 #ifdef UTILS_ENABLE_R
 #include <Rcpp.h>
 uint64_t getObjectSize(SEXP x);
+void *getWritableDataPtr(SEXP x);
+void setAttributes(SEXP x, SEXP attributes);
 void copyData(void *target, SEXP source);
 class PROTECT_GUARD
 {

@@ -95,6 +95,38 @@ uint64_t getObjectSize(SEXP x)
     return elt_size * XLENGTH(x);
 }
 
+void *getWritableDataPtr(SEXP x)
+{
+    switch (TYPEOF(x))
+    {
+    case LGLSXP:
+        return LOGICAL(x);
+    case INTSXP:
+        return INTEGER(x);
+    case REALSXP:
+        return REAL(x);
+    case CPLXSXP:
+        return COMPLEX(x);
+    case RAWSXP:
+        return RAW(x);
+    default:
+        Rf_error("Cannot get a writable data pointer for type: %d\n", TYPEOF(x));
+    }
+    return NULL;
+}
+
+void setAttributes(SEXP x, SEXP attributes)
+{
+    for (SEXP attribute = attributes;
+         attribute != R_NilValue;
+         attribute = CDR(attribute))
+    {
+        if (TAG(attribute) == R_NilValue)
+            Rf_error("Attributes must be a named pairlist");
+        Rf_setAttrib(x, TAG(attribute), CAR(attribute));
+    }
+}
+
 void loadLibrary()
 {
     SEXP e;
