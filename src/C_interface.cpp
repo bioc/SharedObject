@@ -41,18 +41,27 @@ SEXP C_createEmptySharedObject(int type, uint64_t length,
 // [[Rcpp::export]]
 SEXP C_createSharedObjectFromSource(
 	SEXP x, bool copyOnWrite, bool sharedSubset, bool sharedCopy,
-	SEXP attributes)
+	SEXP attributes, bool setS4)
 {
-	return createSharedObjectFromSource(
+	PROTECT_GUARD guard;
+	SEXP result = guard.protect(createSharedObjectFromSource(
 		x, copyOnWrite, sharedSubset, sharedCopy,
-		attributes);
+		attributes));
+	if (setS4)
+		result = Rf_asS4(result, TRUE, 0);
+	return result;
 }
 
 // copyOnWrite,sharedSubset,sharedCopy will be disabled
 // [[Rcpp::export]]
-SEXP C_createSharedStringFromSource(SEXP x, bool copyOnWrite, SEXP attributes)
+SEXP C_createSharedStringFromSource(SEXP x, bool copyOnWrite, SEXP attributes,
+									bool setS4)
 {
-	return createSharedStringFromSource(x, copyOnWrite, attributes);
+	PROTECT_GUARD guard;
+	SEXP result = guard.protect(createSharedStringFromSource(x, copyOnWrite, attributes));
+	if (setS4)
+		result = Rf_asS4(result, TRUE, 0);
+	return result;
 }
 
 // [[Rcpp::export]]
@@ -161,29 +170,14 @@ void C_setAltData2(SEXP x, SEXP data)
 ##########################################
 */
 // [[Rcpp::export]]
-int C_getObject(SEXP x)
-{
-	return OBJECT(x);
-}
-// [[Rcpp::export]]
-void C_setObject(SEXP x, int i)
-{
-	SET_OBJECT(x, i);
-}
-// [[Rcpp::export]]
 bool C_ISS4(SEXP x)
 {
-	return IS_S4_OBJECT(x);
+	return Rf_isS4(x);
 }
 // [[Rcpp::export]]
-void C_SETS4(SEXP x)
+SEXP C_setS4(SEXP x, bool flag)
 {
-	SET_S4_OBJECT(x);
-}
-// [[Rcpp::export]]
-void C_UNSETS4(SEXP x)
-{
-	UNSET_S4_OBJECT(x);
+	return Rf_asS4(x, flag ? TRUE : FALSE, 0);
 }
 // [[Rcpp::export]]
 bool C_isSameObject(SEXP x, SEXP y)

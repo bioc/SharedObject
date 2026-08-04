@@ -28,19 +28,25 @@ doList <- function(func,tryFunc, x, ...){
     }
     x
 }
-doS4 <- function(func, x, ...){
-    ## If the object is an S4SXP,
-    ## share its slots
+doS4 <- function(func, x, ..., setS4InFunc = FALSE){
+    ## Vector- and list-backed S4 objects store their inherited .Data in the
+    ## underlying vector/list. Temporarily clear the S4 flag so it can be
+    ## processed by the usual atomic/list dispatch.
     if(isSharableAtomic(x)||isSEXPList(x)){
-        ## If the object is not an S4SXP,
-        ## Calling the right share method
-        C_UNSETS4(x)
-        if(isS4(x))
+        data <- C_setS4(x, FALSE)
+        on.exit(C_setS4(data, TRUE), add = TRUE)
+        if(isS4(data))
             stop("Unexpected error, cannot convert an S4 object to a non-S4 object")
-        result <- func(x,...)
-        C_SETS4(x)
-        C_SETS4(result)
+        if(setS4InFunc && isSharableAtomic(data)){
+            ## Convert a newly created ALTREP before it becomes referenced;
+            ## otherwise Rf_asS4() must duplicate and may materialize it.
+            result <- func(data,...,.setS4 = TRUE)
+        }else{
+            result <- func(data,...)
+            result <- C_setS4(result, TRUE)
+        }
     }else{
+        ## Ordinary S4 objects are S4SXP containers, so process their slots.
         result <- x
         slots <- slotNames(result)
         for(i in slots){
