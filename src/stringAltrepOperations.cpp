@@ -20,7 +20,7 @@ static void *altrepDataptrRW(SEXP x)
 Rboolean sharedString_Inspect(SEXP x, int pre, int deep, int pvec,
                               void (*inspect_subtree)(SEXP, int, int, int))
 {
-    Rprintf(" (len=%llu, COW=%d) shared string object\n", Rf_xlength(x),
+    Rprintf(" (len=%llu, COW=%d) shared string object\n", (unsigned long long)Rf_xlength(x),
             as<bool>(GET_ALT_SLOT(x, STR_INFO_COPYONWRITE)));
     return TRUE;
 }

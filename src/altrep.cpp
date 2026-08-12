@@ -143,7 +143,7 @@ SEXP createSharedStringFromSource(SEXP x, bool copyOnWrite,	SEXP attributes)
 	const size_t unitSize = std::pow(2, std::ceil(std::log2(unitBytes)));
 	if (unitSize != 1 && unitSize != 2 && unitSize != 4 && unitSize != 8)
 	{
-		Rf_error("Something is wrong with the unit size: %llu\n", unitSize);
+		Rf_error("Something is wrong with the unit size: %llu\n", (unsigned long long)unitSize);
 	}
 	size_t totalSize = unitSize * length;
 	PROTECT_GUARD guard;
@@ -238,7 +238,7 @@ SEXP unshareString(SEXP x, SEXP attributes)
             curChar = STRING_ELT(charSet, ((uint64_t *)indexPtr)[i]);
             break;
 		default:
-			Rf_error("Unknown unit size in the unshareString function, unit size: %llu", (uint64_t)unitSize);
+			Rf_error("Unknown unit size in the unshareString function, unit size: %llu", (unsigned long long)unitSize);
 			curChar = R_NilValue;
         }
         SET_STRING_ELT(stringVec, i, curChar);

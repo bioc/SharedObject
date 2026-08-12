@@ -10,7 +10,7 @@ using namespace Rcpp;
 Rboolean sharedVector_Inspect(SEXP x, int pre, int deep, int pvec,
 							  void (*inspect_subtree)(SEXP, int, int, int))
 {
-	Rprintf(" (len=%llu, type=%d, COW=%d, SC=%d, SS=%d) shared object ID:%s\n", Rf_xlength(x), TYPEOF(x),
+	Rprintf(" (len=%llu, type=%d, COW=%d, SC=%d, SS=%d) shared object ID:%s\n", (unsigned long long)Rf_xlength(x), TYPEOF(x),
 			Rcpp::as<int>(GET_ALT_SLOT(x, INFO_COPYONWRITE)),
 			Rcpp::as<int>(GET_ALT_SLOT(x, INFO_SHAREDCOPY)),
 			Rcpp::as<int>(GET_ALT_SLOT(x, INFO_SHAREDSUBSET)),
