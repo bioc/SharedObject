@@ -93,7 +93,7 @@ static void validate_shared_memory(std::string key,
             "Testing shared memory failed, key: %s, size: %lluB.\n"
             "This is a fatal error, please consider saving your data "
             "and restarting R to avoid the possible data loss.",
-            key.c_str(), (uint64_t)size);
+            key.c_str(), (unsigned long long)size);
     }
 }
 #endif
